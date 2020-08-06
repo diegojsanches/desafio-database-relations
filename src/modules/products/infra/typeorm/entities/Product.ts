@@ -11,7 +11,6 @@ import OrdersProducts from '@modules/orders/infra/typeorm/entities/OrdersProduct
 
 @Entity('products')
 class Product {
-  @Column()
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -21,7 +20,7 @@ class Product {
   @Column('decimal')
   price: number;
 
-  @Column('integer')
+  @Column('int')
   quantity: number;
 
   @OneToMany(() => OrdersProducts, order => order.product)

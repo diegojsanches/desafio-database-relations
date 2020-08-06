@@ -4,6 +4,7 @@ import AppError from '@shared/errors/AppError';
 
 import IProductsRepository from '@modules/products/repositories/IProductsRepository';
 import ICustomersRepository from '@modules/customers/repositories/ICustomersRepository';
+import IUpdateProductsQuantityDTO from '@modules/products/dtos/IUpdateProductsQuantityDTO';
 import Order from '../infra/typeorm/entities/Order';
 import IOrdersRepository from '../repositories/IOrdersRepository';
 
@@ -31,7 +32,54 @@ class CreateOrderService {
   ) {}
 
   public async execute({ customer_id, products }: IRequest): Promise<Order> {
-    // TODO
+    const customer = await this.customersRepository.findById(customer_id);
+    if (!customer) {
+      throw new AppError('Custumer error');
+    }
+
+    const findProducts = await this.productsRepository.findAllById(products);
+    if (!findProducts || findProducts.length !== products.length) {
+      throw new AppError('Product error');
+    }
+
+    const updatedQuantities: IUpdateProductsQuantityDTO[] = [];
+
+    const updatedProducts = findProducts.map(findProduct => {
+      const orderProduct = products.find(
+        product => product.id === findProduct.id,
+      );
+
+      if (!orderProduct) {
+        throw new AppError(`Product ${findProduct.name} has no find on stores`);
+      }
+
+      if (findProduct.quantity < orderProduct.quantity) {
+        throw new AppError(
+          `Product ${findProduct.name} has quantity available in stock: ${findProduct.quantity}\n
+           Quantity requested: ${orderProduct.quantity}`,
+        );
+      }
+
+      updatedQuantities.push({
+        id: orderProduct.id,
+        quantity: findProduct.quantity - orderProduct.quantity,
+      });
+
+      return {
+        product_id: orderProduct.id,
+        price: findProduct.price,
+        quantity: orderProduct.quantity,
+      };
+    });
+
+    await this.productsRepository.updateQuantity(updatedQuantities);
+
+    const order = await this.ordersRepository.create({
+      customer,
+      products: updatedProducts,
+    });
+
+    return order;
   }
 }
 
